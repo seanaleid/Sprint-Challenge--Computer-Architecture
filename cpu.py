@@ -1,12 +1,8 @@
-"""CPU functionality."""
-
 import sys
 
 class CPU:
-    """Main CPU class."""
 
     def __init__(self):
-        """Construct a new CPU."""
         self.ram = [0]*256
         self.pc = 0
         self.register = [0]*8
@@ -28,7 +24,16 @@ class CPU:
             0b01010100: self.JMP,
             0b01010101: self.JEQ,
             0b01010110: self.JNE,
+            0b10101000: self.AND,
+            0b10101010: self.OR,
+            0b10101011: self.XOR,
+            0b01101001: self.NOT,
+            0b10101100: self.SHL,
+            0b10101101: self.SHR,
+            0b10100100: self.MOD,
         }
+
+    """ READ, WRITE, LOAD METHODS """
 
     def ram_read(self, address):
         # look in the RAM at the address passed through 
@@ -37,6 +42,26 @@ class CPU:
     def ram_write(self, value, address):
         # takes the address and updates the value at that address
         self.ram[address] = value
+
+    def load(self):
+        """Load a program into memory."""
+        address = 0
+        filename = sys.argv[1]
+        with open(filename) as f:
+            for line in f:
+                line = line.split('#')[0].strip()
+                # new_line = line[0].strip()
+                try:
+                    v = int(line, 2)
+                except ValueError:
+                    continue
+                # print(f"{v:08b}: {v:d}")
+                self.ram[address] = v
+                # print(address, v)
+                address+=1
+        # print(self.ram[:15])
+
+    """ MAIN METHODS """
 
     def LDI(self):
         address = self.ram_read(self.pc+1)
@@ -50,16 +75,6 @@ class CPU:
 
     def HLT(self):
         self.running = False
-
-    def MUL(self):
-        num1 = self.ram_read(self.pc+1)
-        num2 = self.ram_read(self.pc+2)
-        self.alu('MUL', num1, num2)
-    
-    def ADD(self):
-        num1 = self.ram_read(self.pc+1)
-        num2 = self.ram_read(self.pc+2)
-        self.alu('ADD', num1, num2)
 
     def PUSH(self):
         self.sp -= 1
@@ -75,23 +90,15 @@ class CPU:
 
     def CALL(self):
         self.sp-=1
-
         return_address = self.pc+2
         self.ram[self.sp] = return_address
-
         register_index = self.ram[self.pc+1]
         self.pc = self.register[register_index]
 
     def RET(self):
         return_address = self.ram[self.sp]
-
         self.pc = return_address
         self.sp+=1
-
-    def CMP(self):
-        reg1 = self.ram_read(self.pc+1)
-        reg2 = self.ram_read(self.pc+2)
-        self.alu('CMP', reg1, reg2)
 
     def JMP(self):
         register_address = self.ram_read(self.pc+1)
@@ -114,34 +121,66 @@ class CPU:
         else:
             self.pc+=2
 
-    def load(self):
-        """Load a program into memory."""
-        address = 0
-        filename = sys.argv[1]
-        with open(filename) as f:
-            for line in f:
-                line = line.split('#')[0].strip()
-                # new_line = line[0].strip()
-                try:
-                    v = int(line, 2)
-                except ValueError:
-                    continue
-                # print(f"{v:08b}: {v:d}")
-                self.ram[address] = v
-                # print(address, v)
-                address+=1
-        # print(self.ram[:15])
+    """ ALU METHODS """
+
+    def ADD(self):
+        num1 = self.ram_read(self.pc+1)
+        num2 = self.ram_read(self.pc+2)
+        self.alu('ADD', num1, num2)
+
+    def AND(self):
+        reg1 = self.ram_read(self.pc+1)
+        reg2 = self.ram_read(self.pc+2)
+        self.alu('AND', reg1, reg2)
+
+    def CMP(self):
+        reg1 = self.ram_read(self.pc+1)
+        reg2 = self.ram_read(self.pc+2)
+        self.alu('CMP', reg1, reg2)
+
+    def MOD(self):
+        reg1 = self.ram_read(self.pc+1)
+        reg2 = self.ram_read(self.pc+2)
+        self.alu('MOD', reg1, reg2)
+
+    def MUL(self):
+        num1 = self.ram_read(self.pc+1)
+        num2 = self.ram_read(self.pc+2)
+        self.alu('MUL', num1, num2)
+
+    def NOT(self):
+        reg1 = self.ram_read(self.pc+1)
+        self.alu('NOT', reg1, None)
+
+    def OR(self):
+        reg1 = self.ram_read(self.pc+1)
+        reg2 = self.ram_read(self.pc+2)
+        self.alu('OR', reg1, reg2)
+
+    def SHL(self):
+        reg1 = self.ram_read(self.pc+1)
+        reg2 = self.ram_read(self.pc+2)
+        self.alu('SHL', reg1, reg2)
+
+    def SHR(self):
+        reg1 = self.ram_read(self.pc+1)
+        reg2 = self.ram_read(self.pc+2)
+        self.alu('SHR', reg1, reg2)
+
+    def XOR(self):
+        reg1 = self.ram_read(self.pc+1)
+        reg2 = self.ram_read(self.pc+2)
+        self.alu('XOR', reg1, reg2)
+
+    """ ALU """
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
         if op == 'ADD':
             self.register[reg_a] += self.register[reg_b]
-        elif op == 'SUB':
-            self.register[reg_a] -= self.register[reg_b]
-        elif op == 'MUL':
-            self.register[reg_a] *= self.register[reg_b]
-        elif op == 'DIV':
-            self.register[reg_a] /= self.register[reg_b]
+        elif op == 'AND':
+            result = self.register[reg_a] & self.register[reg_b]
+            self.register[reg_a] = result
         elif op == 'CMP':
             if self.register[reg_a] < self.register[reg_b]:
                 self.fl = 0b00000100
@@ -149,8 +188,35 @@ class CPU:
                 self.fl = 0b00000010
             elif self.register[reg_a] == self.register[reg_b]:
                 self.fl = 0b00000001
+        elif op == 'MOD':
+            if self.register[reg_b] == 0:
+                print(f"Can't divide by 0!")
+                self.HLT()
+            else:
+                result = self.register[reg_a] % self.register[reg_b]
+                self.register[reg_a] = result
+        elif op == 'MUL':
+            self.register[reg_a] *= self.register[reg_b]
+        elif op == 'NOT':
+            self.register[reg_a] = ~self.register[reg_a]
+        elif op == 'OR':
+            result = self.register[reg_a] | self.register[reg_b]
+            self.register[reg_a] = result
+        elif op == 'SHL':
+            result = self.register[reg_a] << self.register[reg_b]
+            self.register[reg_a] = result
+        elif op == 'SHR':
+            result = self.register[reg_a] >> self.register[reg_b]
+            self.register[reg_a] = result
+        elif op == 'SUB':
+            self.register[reg_a] -= self.register[reg_b]
+        elif op == 'XOR':
+            result = self.register[reg_a] ^ self.register[reg_b]
+            self.register[reg_a] = result
         else:
             raise Exception("Unsupported ALU operation")
+
+    """ TRACE """
 
     def trace(self):
         """
@@ -172,8 +238,9 @@ class CPU:
 
         print()
 
+    """RUN THE CPU"""
+
     def run(self):
-        """Run the CPU."""
         while self.running:
 
             IR = self.ram_read(self.pc)
