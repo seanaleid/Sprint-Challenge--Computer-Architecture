@@ -13,6 +13,7 @@ class CPU:
         self.running = True
         self.register[7] = 0xf4
         self.sp = self.register[7]
+        self.fl = 0b00000000
         self.branches = {
             0b10000010: self.LDI,
             0b01000111: self.PRN,
@@ -22,7 +23,11 @@ class CPU:
             0b01000101: self.PUSH,
             0b01000110: self.POP,
             0b01010000: self.CALL,
-            0b00010001: self.RET
+            0b00010001: self.RET,
+            0b10100111: self.CMP,
+            0b01010100: self.JMP,
+            0b01010101: self.JEQ,
+            0b01010110: self.JNE,
         }
 
     def ram_read(self, address):
@@ -83,6 +88,32 @@ class CPU:
         self.pc = return_address
         self.sp+=1
 
+    def CMP(self):
+        reg1 = self.ram_read(self.pc+1)
+        reg2 = self.ram_read(self.pc+2)
+        self.alu('CMP', reg1, reg2)
+
+    def JMP(self):
+        register_address = self.ram_read(self.pc+1)
+        jump_address = self.register[register_address]
+        self.pc = jump_address
+    
+    def JEQ(self):
+        register_address = self.ram_read(self.pc+1)
+        address = self.register[register_address]
+        if self.fl == 0b00000001:
+            self.pc = address
+        else:
+            self.pc+=2
+
+    def JNE(self):
+        register_address = self.ram_read(self.pc+1)
+        address = self.register[register_address]
+        if self.fl != 0b00000001:
+            self.pc = address
+        else:
+            self.pc+=2
+
     def load(self):
         """Load a program into memory."""
         address = 0
@@ -97,20 +128,27 @@ class CPU:
                     continue
                 # print(f"{v:08b}: {v:d}")
                 self.ram[address] = v
-                print(address, v)
+                # print(address, v)
                 address+=1
         # print(self.ram[:15])
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
-        if op == "ADD":
+        if op == 'ADD':
             self.register[reg_a] += self.register[reg_b]
-        elif op == "SUB":
+        elif op == 'SUB':
             self.register[reg_a] -= self.register[reg_b]
         elif op == 'MUL':
             self.register[reg_a] *= self.register[reg_b]
-        elif op == "DIV":
+        elif op == 'DIV':
             self.register[reg_a] /= self.register[reg_b]
+        elif op == 'CMP':
+            if self.register[reg_a] < self.register[reg_b]:
+                self.fl = 0b00000100
+            elif self.register[reg_a] > self.register[reg_b]:
+                self.fl = 0b00000010
+            elif self.register[reg_a] == self.register[reg_b]:
+                self.fl = 0b00000001
         else:
             raise Exception("Unsupported ALU operation")
 
